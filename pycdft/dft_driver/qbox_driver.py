@@ -221,12 +221,8 @@ class QboxDriver(DFTDriver):
         if os.path.exists(_output_file):
             os.remove(_output_file)
 
-    def get_wfc(self):
-        """ Parse wavefunction from Qbox."""
-
-        self.run_cmd(self.wfc_cmd)
-        wfcfile = self.wfc_file
-
+    def parse_wfc_from_file(self, wfcfile):
+        """ Parse wavefunction from an XML file."""
         iterxml = etree.iterparse(wfcfile, huge_tree=True, events=("start", "end"))
 
         nkpt = 1
@@ -296,11 +292,25 @@ class QboxDriver(DFTDriver):
 
             if event == "start" and leaf.tag == "wavefunction_velocity":
                 break
+        return wfc
 
-        self.sample.wfc = wfc
+    def get_wfc(self):
+        """ Parse wavefunction from Qbox."""
+        self.run_cmd(self.wfc_cmd)
+        self.sample.wfc = self.parse_wfc_from_file(self.wfc_file)
+
+    def restart_wfc(self, wfcfile, dft_energies):
+        """ Load DFT energies and wavefunction."""
+        
+        # set up total energies used in calculation of electronic coupling
+        self.sample.Ed = dft_energies[0]
+        self.sample.Ec = dft_energies[1]
+ 
+        self.sample.wfc = self.parse_wfc_from_file(wfcfile)
+        print("QboxDriver: loaded wfc from file for restart.")
 
     def exit(self):
-        """ quit DFT driver """
+        """ Quit DFT driver """
         open(self.input_file, "w").write("quit" + "\n")
         os.remove(self.lock_file)
         print("Qbox session ended")
